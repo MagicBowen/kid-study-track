@@ -14,6 +14,24 @@ router.get('/week', async (req, res, next) => {
       });
     }
 
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(weekStart)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 参数格式无效 (应为 YYYY-MM-DD)' }
+      });
+    }
+
+    // Verify it's a valid date
+    const testDate = new Date(weekStart);
+    if (isNaN(testDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 不是有效日期' }
+      });
+    }
+
     // 计算一周的日期范围
     const weekDates = getWeekDates(weekStart);
 
@@ -43,6 +61,24 @@ router.get('/subject', async (req, res, next) => {
       return res.status(400).json({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: '缺少必要参数' }
+      });
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(weekStart)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 参数格式无效 (应为 YYYY-MM-DD)' }
+      });
+    }
+
+    // Verify it's a valid date
+    const testDate = new Date(weekStart);
+    if (isNaN(testDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 不是有效日期' }
       });
     }
 
@@ -137,7 +173,7 @@ function calculateWeekStats(tasks, weekDates) {
     totalHours: Math.round(data.totalHours * 10) / 10,
     completed: data.completed,
     total: data.total,
-    percentage: Math.round((data.totalHours / (totalMinutes / 60)) * 100)
+    percentage: totalMinutes > 0 ? Math.round((data.totalHours / (totalMinutes / 60)) * 100) : 0
   }));
 
   // 每日趋势
