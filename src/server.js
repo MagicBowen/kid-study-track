@@ -66,6 +66,10 @@ async function start() {
     await database.createTables();
     console.log('✅ Database tables ready');
 
+    // Seed default data
+    console.log('🌱 Seeding default data...');
+    await database.seedDefaultData();
+
     // Start server
     const server = app.listen(PORT, HOST, () => {
       console.log('');

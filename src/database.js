@@ -105,6 +105,79 @@ class Database {
     }
   }
 
+  async seedDefaultData() {
+    try {
+      // 检查是否已有数据
+      const existingPlans = await this.get('SELECT COUNT(*) as count FROM plans');
+      if (existingPlans.count > 0) {
+        console.log('ℹ️  Database already seeded, skipping...');
+        return;
+      }
+
+      // 获取当前周周一作为计划开始日期
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const weekStart = new Date(today.setDate(diff));
+      const weekStartStr = this.formatDateLocal(weekStart);
+
+      // 创建默认周内计划
+      const planResult = await this.run(
+        `INSERT INTO plans (name, type, week_start, is_active)
+         VALUES (?, ?, ?, 1)`,
+        ['周内标准计划', 'weekday', weekStartStr]
+      );
+
+      // 默认任务
+      const defaultTasks = [
+        { subject: '数学', title: '《练到位》练习', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '物理', title: '《必刷题》练习', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '化学', title: '《每日一题》', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '生物', title: '《必刷题》练习', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '语文', title: '《高考真题》练习', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '英语', title: '《语法填空》2篇', days: ['Mon','Tue','Wed','Thu','Fri'] },
+        { subject: '英语', title: '《每日一句》+单词', days: ['Mon','Tue','Wed','Thu','Fri'] }
+      ];
+
+      const weekMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+
+      for (const taskData of defaultTasks) {
+        for (const day of taskData.days) {
+          // 计算具体日期
+          const targetDay = weekMap[day];
+          const taskDate = new Date(weekStart);
+          const currentDay = taskDate.getDay();
+          const dayDiff = targetDay - (currentDay === 0 ? 7 : currentDay);
+          taskDate.setDate(taskDate.getDate() + dayDiff);
+          const taskDateStr = this.formatDateLocal(taskDate);
+
+          const taskResult = await this.run(
+            'INSERT INTO tasks (title, subject, type, date, is_completed) VALUES (?, ?, ?, ?, 0)',
+            [taskData.title, taskData.subject, 'weekday', taskDateStr]
+          );
+
+          await this.run(
+            'INSERT INTO plan_tasks (plan_id, task_id, day_of_week) VALUES (?, ?, ?)',
+            [planResult.id, taskResult.id, day]
+          );
+        }
+      }
+
+      console.log('✅ Default data seeded successfully');
+    } catch (err) {
+      console.error('❌ Failed to seed default data:', err);
+      throw err;
+    }
+  }
+
+  // 辅助方法：格式化日期为本地时区 YYYY-MM-DD
+  formatDateLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   async run(sql, params = []) {
     if (!this.isInitialized || this.isClosed) {
       throw new Error('Database is not initialized or has been closed');
