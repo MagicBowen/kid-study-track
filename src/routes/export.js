@@ -7,6 +7,9 @@ const database = require('../database');
 router.get('/pdf', async (req, res, next) => {
   let browser;
   try {
+    // Set request timeout (30 seconds)
+    req.setTimeout(30000);
+
     const { weekStart } = req.query;
 
     // Validate weekStart parameter
@@ -23,6 +26,15 @@ router.get('/pdf', async (req, res, next) => {
       return res.status(400).json({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: 'weekStart 格式无效，应为 YYYY-MM-DD' }
+      });
+    }
+
+    // Verify it's a valid date
+    const testDate = new Date(weekStart);
+    if (isNaN(testDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 不是有效日期' }
       });
     }
 
@@ -57,8 +69,7 @@ router.get('/pdf', async (req, res, next) => {
         '--no-zygote',
         '--single-process', // Add this for macOS compatibility
         '--disable-gpu'
-      ],
-      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      ]
     });
 
     const page = await browser.newPage();
@@ -81,6 +92,7 @@ router.get('/pdf', async (req, res, next) => {
     // Set response headers for file download
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="weekly-tracker-${weekStart}.pdf"`);
+    res.setHeader('Content-Length', pdf.length);
     res.send(pdf);
 
   } catch (err) {
