@@ -25,7 +25,7 @@ A task tracking and check-in system designed for high school students to manage 
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/kid-study-track.git
+git clone https://github.com/MagicBowen/kid-study-track.git
 cd kid-study-track
 
 # Install dependencies
