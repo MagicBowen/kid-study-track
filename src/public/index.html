@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习计划跟踪系统</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- 视图切换导航栏 -->
+  <nav class="view-nav">
+    <div class="nav-item active" data-view="student">
+      📚 学生视图
+    </div>
+    <div class="nav-item" data-view="parent">
+      👁️ 家长视图
+    </div>
+    <div class="nav-info" id="weekInfo"></div>
+  </nav>
+
+  <!-- 学生视图 -->
+  <div id="studentView" class="view active">
+    <div class="date-selector">
+      <button class="date-btn" data-offset="-2">◀</button>
+      <div class="weekdays" id="weekdays"></div>
+      <button class="date-btn" data-offset="2">▶</button>
+    </div>
+
+    <div class="task-list" id="taskList">
+      <div class="loading">加载中...</div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-secondary" id="copyPlanBtn">📋 复制上周计划</button>
+      <button class="btn btn-primary" id="exportPdfBtn">📄 导出PDF</button>
+    </div>
+  </div>
+
+  <!-- 家长视图 -->
+  <div id="parentView" class="view">
+    <div class="stats-summary" id="statsSummary">
+      <div class="loading">加载中...</div>
+    </div>
+
+    <div class="daily-trend" id="dailyTrend"></div>
+
+    <div class="subject-list" id="subjectList"></div>
+  </div>
+
+  <!-- 科目详情弹窗 -->
+  <div class="modal" id="subjectModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">科目详情</h2>
+        <button class="close-btn" id="closeModal">×</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/state.js"></script>
+  <script src="/js/student.js"></script>
+  <script src="/js/parent.js"></script>
+  <script>
+    // 初始化应用
+    document.addEventListener('DOMContentLoaded', () => {
+      // 视图切换
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const view = item.dataset.view;
+          AppState.switchView(view);
+        });
+      });
+
+      // 监听视图变化
+      AppState.on('view-changed', () => {
+        updateView();
+      });
+
+      // 初始化
+      initStudentView();
+      initParentView();
+      updateView();
+    });
+
+    function updateView() {
+      // 更新导航栏
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.view === AppState.currentView);
+      });
+
+      // 更新视图可见性
+      document.querySelectorAll('.view').forEach(view => {
+        view.classList.remove('active');
+      });
+      document.getElementById(`${AppState.currentView}View`).classList.add('active');
+
+      // 加载对应视图数据
+      if (AppState.currentView === 'student') {
+        loadStudentData();
+      } else {
+        loadParentData();
+      }
+    }
+  </script>
+</body>
+</html>
