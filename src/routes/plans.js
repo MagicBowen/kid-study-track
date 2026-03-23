@@ -87,30 +87,27 @@ router.post('/create-from-template', async (req, res, next) => {
       [template.name, template.type, week_start]
     );
 
-    // 创建任务
-    const taskPromises = [];
+    // TODO: Wrap in transaction when database.js supports it
+    // Currently using sequential operations to minimize partial failure risk
+
+    // 创建任务 - 顺序处理以避免sort_order竞态条件
     let sortOrder = 0;
+    let tasksCreated = 0;
 
     for (const taskData of template.tasks) {
       for (const day of taskData.days) {
-        taskPromises.push(
-          (async () => {
-            const taskDate = getTaskDate(week_start, day);
-            const result = await database.run(
-              'INSERT INTO tasks (title, subject, type, date, is_completed) VALUES (?, ?, ?, ?, 0)',
-              [taskData.title, taskData.subject, template_type, taskDate]
-            );
-            await database.run(
-              'INSERT INTO plan_tasks (plan_id, task_id, day_of_week, sort_order) VALUES (?, ?, ?, ?)',
-              [planResult.id, result.id, day, sortOrder++]
-            );
-            return result.id;
-          })()
+        const taskDate = getTaskDate(week_start, day);
+        const result = await database.run(
+          'INSERT INTO tasks (title, subject, type, date, is_completed) VALUES (?, ?, ?, ?, 0)',
+          [taskData.title, taskData.subject, template_type, taskDate]
         );
+        await database.run(
+          'INSERT INTO plan_tasks (plan_id, task_id, day_of_week, sort_order) VALUES (?, ?, ?, ?)',
+          [planResult.id, result.id, day, sortOrder++]
+        );
+        tasksCreated++;
       }
     }
-
-    await Promise.all(taskPromises);
 
     // 取消其他计划的激活状态
     await database.run('UPDATE plans SET is_active = 0 WHERE id != ?', [planResult.id]);
@@ -119,7 +116,7 @@ router.post('/create-from-template', async (req, res, next) => {
       success: true,
       data: {
         plan_id: planResult.id,
-        tasks_created: taskPromises.length,
+        tasks_created: tasksCreated,
         week_start
       }
     });
