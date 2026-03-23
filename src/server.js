@@ -23,13 +23,13 @@ app.use('/api/export', require('./routes/export'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('[ERROR]', err);
 
   // Structured JSON error response
   const errorResponse = {
     success: false,
     error: {
-      code: err.code || 'INTERNAL_SERVER_ERROR',
+      code: err.code || 'UNKNOWN_ERROR',
       message: err.message || 'An unexpected error occurred'
     }
   };
@@ -54,7 +54,7 @@ app.use((req, res) => {
 });
 
 // Server startup
-async function startServer() {
+async function start() {
   try {
     // Initialize database
     console.log('📦 Initializing database...');
@@ -110,6 +110,6 @@ async function startServer() {
 }
 
 // Start the server
-startServer();
+start();
 
 module.exports = app;
