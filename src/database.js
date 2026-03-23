@@ -7,9 +7,16 @@ const config = require('../config.json');
 class Database {
   constructor() {
     this.db = null;
+    this.isInitialized = false;
+    this.isClosed = false;
   }
 
   async initialize() {
+    // 防止重复初始化
+    if (this.isInitialized) {
+      return Promise.resolve();
+    }
+
     // 确保数据目录存在
     const dbDir = path.dirname(config.database.path);
     if (!fs.existsSync(dbDir)) {
@@ -24,7 +31,11 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db = new sqlite3.Database(config.database.path, (err) => {
         if (err) reject(err);
-        else resolve();
+        else {
+          this.isInitialized = true;
+          this.isClosed = false;
+          resolve();
+        }
       });
     });
   }
@@ -94,7 +105,10 @@ class Database {
     }
   }
 
-  run(sql, params = []) {
+  async run(sql, params = []) {
+    if (!this.isInitialized || this.isClosed) {
+      throw new Error('Database is not initialized or has been closed');
+    }
     return new Promise((resolve, reject) => {
       this.db.run(sql, params, function(err) {
         if (err) reject(err);
@@ -103,7 +117,10 @@ class Database {
     });
   }
 
-  get(sql, params = []) {
+  async get(sql, params = []) {
+    if (!this.isInitialized || this.isClosed) {
+      throw new Error('Database is not initialized or has been closed');
+    }
     return new Promise((resolve, reject) => {
       this.db.get(sql, params, (err, row) => {
         if (err) reject(err);
@@ -112,7 +129,10 @@ class Database {
     });
   }
 
-  all(sql, params = []) {
+  async all(sql, params = []) {
+    if (!this.isInitialized || this.isClosed) {
+      throw new Error('Database is not initialized or has been closed');
+    }
     return new Promise((resolve, reject) => {
       this.db.all(sql, params, (err, rows) => {
         if (err) reject(err);
@@ -122,10 +142,18 @@ class Database {
   }
 
   close() {
+    // 防止重复关闭
+    if (this.isClosed) {
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       this.db.close((err) => {
         if (err) reject(err);
-        else resolve();
+        else {
+          this.isClosed = true;
+          this.isInitialized = false;
+          resolve();
+        }
       });
     });
   }
