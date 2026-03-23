@@ -32,11 +32,26 @@ const TaskAPI = {
     return apiRequest(`/tasks?date=${date}`);
   },
 
+  // 创建新任务
+  async create(data) {
+    return apiRequest(`/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   // 更新任务
   async update(id, data) {
     return apiRequest(`/tasks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  },
+
+  // 删除任务
+  async delete(id) {
+    return apiRequest(`/tasks/${id}`, {
+      method: 'DELETE'
     });
   },
 
@@ -89,9 +104,9 @@ const StatsAPI = {
 
 // PDF 导出 API
 const ExportAPI = {
-  // 导出周跟踪表 PDF
+  // 导出周跟踪表 PDF（使用打印对话框）
   async exportPDF(weekStart) {
-    const url = `${API_BASE}/export/pdf?weekStart=${weekStart}`;
+    const url = `${API_BASE}/export/print?weekStart=${weekStart}`;
     window.open(url, '_blank');
   }
 };

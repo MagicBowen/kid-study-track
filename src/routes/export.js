@@ -1,15 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const puppeteer = require('puppeteer');
 const database = require('../database');
 
-// GET /api/export/pdf?weekStart=YYYY-MM-DD - Generate and download PDF
-router.get('/pdf', async (req, res, next) => {
-  let browser;
+// GET /api/export/print?weekStart=YYYY-MM-DD - Generate print-friendly HTML
+router.get('/print', async (req, res, next) => {
   try {
-    // Set request timeout (30 seconds)
-    req.setTimeout(30000);
-
     const { weekStart } = req.query;
 
     // Validate weekStart parameter
@@ -44,82 +39,68 @@ router.get('/pdf', async (req, res, next) => {
       [weekStart]
     );
 
-    // If no plan found, create a generic template
-    const tasks = plan ? await database.all(
-      `SELECT t.*, pt.day_of_week
-       FROM tasks t
-       JOIN plan_tasks pt ON t.id = pt.task_id
-       WHERE pt.plan_id = ?
-       ORDER BY pt.sort_order`,
-      [plan.id]
-    ) : [];
+    // Calculate week date range
+    const weekDates = [];
+    const startDate = new Date(weekStart);
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      weekDates.push(`${year}-${month}-${day}`);
+    }
 
-    // Generate HTML template
-    const html = generatePDFTemplate(plan, tasks, weekStart);
+    // Get ALL tasks for this week (not just plan-linked tasks)
+    const placeholders = weekDates.map(() => '?').join(',');
+    const allTasks = await database.all(
+      `SELECT t.* FROM tasks t WHERE t.date IN (${placeholders}) ORDER BY t.subject, t.title`,
+      weekDates
+    );
 
-    // Launch Puppeteer and generate PDF
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process', // Add this for macOS compatibility
-        '--disable-gpu'
-      ]
-    });
+    // Generate HTML template with all tasks
+    const html = generatePrintTemplate(plan, allTasks, weekStart);
 
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: {
-        top: '10mm',
-        right: '10mm',
-        bottom: '10mm',
-        left: '10mm'
-      }
-    });
-
-    await browser.close();
-
-    // Set response headers for file download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="weekly-tracker-${weekStart}.pdf"`);
-    res.setHeader('Content-Length', pdf.length);
-    res.send(pdf);
+    // Set response headers
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
 
   } catch (err) {
-    // Ensure browser is closed on error
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeErr) {
-        console.error('[ERROR] Failed to close browser:', closeErr);
-      }
-    }
     next(err);
   }
 });
 
 /**
- * Generate HTML template for PDF export
- * Creates a blank weekly tracking table with empty checkboxes and input fields
+ * Generate HTML template for print/export
+ * Creates a weekly tracking table with checkboxes only on days where task exists
  */
-function generatePDFTemplate(plan, tasks, weekStart) {
-  // Group tasks by subject
-  const bySubject = {};
+function generatePrintTemplate(plan, tasks, weekStart) {
+  // Calculate week dates
+  const weekDates = [];
+  const startDate = new Date(weekStart);
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    weekDates.push(`${year}-${month}-${day}`);
+  }
+
+  // Group tasks by subject and title, track which days they exist on
+  const bySubjectTitle = {};
   tasks.forEach(task => {
-    if (!bySubject[task.subject]) {
-      bySubject[task.subject] = [];
+    const key = `${task.subject}|${task.title}`;
+    if (!bySubjectTitle[key]) {
+      bySubjectTitle[key] = {
+        subject: task.subject,
+        title: task.title,
+        dates: []
+      };
     }
-    bySubject[task.subject].push(task);
+    if (!bySubjectTitle[key].dates.includes(task.date)) {
+      bySubjectTitle[key].dates.push(task.date);
+    }
   });
 
   // Subject colors
@@ -136,57 +117,52 @@ function generatePDFTemplate(plan, tasks, weekStart) {
   // Generate table rows
   let tableRows = '';
 
-  // If we have tasks, group them by subject
-  if (Object.keys(bySubject).length > 0) {
-    for (const [subject, subjectTasks] of Object.entries(bySubject)) {
-      const color = colors[subject] || '#666';
-      subjectTasks.forEach(task => {
-        tableRows += `
-          <tr>
-            <td style="background: ${color}; color: white; padding: 4px; text-align: center; font-weight: bold;">${subject}</td>
-            <td style="padding: 4px; font-size: 9px;">${task.title}</td>
-            ${['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map(() => `
-              <td style="padding: 2px; text-align: center;">
-                <div style="border: 1px solid #999; width: 14px; height: 14px; margin: 0 auto;"></div>
-                <div style="border-bottom: 1px solid #999; width: 30px; height: 12px; margin: 2px auto;"></div>
-              </td>
-            `).join('')}
-            <td style="padding: 4px;"></td>
-          </tr>
-        `;
-      });
+  // If we have tasks, render them with checkboxes only on their assigned days
+  if (Object.keys(bySubjectTitle).length > 0) {
+    for (const [key, taskInfo] of Object.entries(bySubjectTitle)) {
+      const color = colors[taskInfo.subject] || '#666';
+
+      tableRows += `
+        <tr>
+          <td style="background: ${color}; color: white; padding: 4px; text-align: center; font-weight: bold;">${taskInfo.subject}</td>
+          <td style="padding: 4px; font-size: 9px;">${taskInfo.title}</td>
+          ${weekDates.map(date => {
+            const hasTaskOnDay = taskInfo.dates.includes(date);
+            if (hasTaskOnDay) {
+              // Task exists on this day - show checkbox and input
+              return `
+                <td style="padding: 2px; text-align: center;">
+                  <div style="border: 1px solid #999; width: 14px; height: 14px; margin: 0 auto;"></div>
+                  <div style="border-bottom: 1px solid #999; width: 30px; height: 12px; margin: 2px auto;"></div>
+                </td>
+              `;
+            } else {
+              // No task on this day - show disabled/hatched pattern
+              return `
+                <td style="padding: 2px; text-align: center; background: repeating-linear-gradient(
+                  45deg,
+                  #f5f5f5,
+                  #f5f5f5 2px,
+                  #e8e8e8 2px,
+                  #e8e8e8 4px
+                );">
+                  <div style="color: #ccc; font-size: 10px;">—</div>
+                </td>
+              `;
+            }
+          }).join('')}
+          <td style="padding: 4px;"></td>
+        </tr>
+      `;
     }
-  } else {
-    // Generate empty template rows for all subjects
-    const defaultSubjects = ['数学', '物理', '化学', '生物', '语文', '英语'];
-    defaultSubjects.forEach(subject => {
-      const color = colors[subject] || '#666';
-      // Add 2 rows per subject
-      for (let i = 0; i < 2; i++) {
-        tableRows += `
-          <tr>
-            <td style="background: ${color}; color: white; padding: 4px; text-align: center; font-weight: bold;">${subject}</td>
-            <td style="padding: 4px;"></td>
-            ${['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map(() => `
-              <td style="padding: 2px; text-align: center;">
-                <div style="border: 1px solid #999; width: 14px; height: 14px; margin: 0 auto;"></div>
-                <div style="border-bottom: 1px solid #999; width: 30px; height: 12px; margin: 2px auto;"></div>
-              </td>
-            `).join('')}
-            <td style="padding: 4px;"></td>
-          </tr>
-        `;
-      }
-    });
   }
 
-  // Calculate week dates
-  const weekDates = [];
-  const startDate = new Date(weekStart);
+  // Calculate display dates for header
+  const displayDates = [];
   for (let i = 0; i < 7; i++) {
     const date = new Date(startDate);
     date.setDate(startDate.getDate() + i);
-    weekDates.push(`${date.getMonth() + 1}/${date.getDate()}`);
+    displayDates.push(`${date.getMonth() + 1}/${date.getDate()}`);
   }
 
   return `
@@ -294,6 +270,15 @@ function generatePDFTemplate(plan, tasks, weekStart) {
     每完成一项任务，在方格中打 ✓，横线上填写用时（分钟）。
     备注栏可记录学习内容、难点、错题等信息。
   </div>
+
+  <script>
+    // Trigger print dialog when page loads
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    };
+  </script>
 </body>
 </html>
   `;

@@ -1,3 +1,23 @@
+// 默认科目列表
+const DEFAULT_SUBJECTS = ['数学', '物理', '化学', '生物', '语文', '英语', '运动'];
+
+// 获取所有科目（默认 + 自定义）
+function getAllSubjects() {
+  const customSubjects = JSON.parse(localStorage.getItem('customSubjects') || '[]');
+  return [...DEFAULT_SUBJECTS, ...customSubjects];
+}
+
+// 保存自定义科目
+function saveCustomSubject(subject) {
+  if (DEFAULT_SUBJECTS.includes(subject)) return;
+
+  const customSubjects = JSON.parse(localStorage.getItem('customSubjects') || '[]');
+  if (!customSubjects.includes(subject)) {
+    customSubjects.push(subject);
+    localStorage.setItem('customSubjects', JSON.stringify(customSubjects));
+  }
+}
+
 // 初始化学生视图
 function initStudentView() {
   renderWeekdays();
@@ -56,6 +76,11 @@ function setupEventListeners() {
   document.getElementById('exportPdfBtn').addEventListener('click', () => {
     ExportAPI.exportPDF(AppState.getWeekStart());
   });
+
+  // 添加任务
+  document.getElementById('addTaskBtn')?.addEventListener('click', () => {
+    showTaskModal();
+  });
 }
 
 async function loadStudentData() {
@@ -103,6 +128,11 @@ function renderTasks(tasks) {
           <input type="text" class="notes-input" placeholder="备注:可记录学习内容、难点等"
                  value="${task.notes || ''}" data-id="${task.id}">
         </div>
+      </div>
+
+      <div class="task-actions">
+        <button class="btn-action btn-edit" data-id="${task.id}" title="编辑">✏️</button>
+        <button class="btn-action btn-delete" data-id="${task.id}" title="删除">🗑️</button>
       </div>
     </div>
   `).join('');
@@ -162,6 +192,182 @@ function setupTaskEvents() {
         showToast('保存失败', 'error');
       }
     });
+  });
+
+  // 编辑按钮
+  document.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const taskId = parseInt(e.target.dataset.id);
+      const tasks = await AppState.loadTasksForDate(AppState.selectedDate);
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        showTaskModal(task);
+      }
+    });
+  });
+
+  // 删除按钮
+  document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const taskId = parseInt(e.target.dataset.id);
+      if (confirm('确定要删除这个任务吗？')) {
+        try {
+          await TaskAPI.delete(taskId);
+          showToast('任务已删除', 'success');
+          loadStudentData();
+        } catch (err) {
+          showToast('删除失败', 'error');
+        }
+      }
+    });
+  });
+}
+
+// 显示任务添加/编辑模态框
+function showTaskModal(task = null) {
+  const isEdit = task !== null;
+  const allSubjects = getAllSubjects();
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>${isEdit ? '编辑任务' : '添加任务'}</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="taskForm">
+          <div class="form-group">
+            <label>科目</label>
+            <input type="text" id="taskSubject" list="taskSubjectDatalist" required
+                   placeholder="点击选择或输入科目" autocomplete="off"
+                   value="${task?.subject || ''}">
+            <datalist id="taskSubjectDatalist">
+              ${allSubjects.map(subject => `<option value="${subject}">${subject}</option>`).join('')}
+            </datalist>
+            <small style="color: #888; display: block; margin-top: 4px;">💡 点击输入框查看已有科目，或直接输入新科目名称</small>
+          </div>
+          <div class="form-group">
+            <label>任务标题</label>
+            <input type="text" id="taskTitle" required placeholder="例如：完成课后习题"
+                   value="${task?.title || ''}">
+          </div>
+          <div class="form-group">
+            <label>选择日期（可多选）</label>
+            <div class="day-checkboxes">
+              ${['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((day, index) => `
+                <label class="day-checkbox-item">
+                  <input type="checkbox" name="taskDays" value="${index}" ${index < 5 ? 'checked' : ''}>
+                  <span>${day}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>类型</label>
+            <select id="taskType">
+              <option value="study" ${task?.type === 'study' ? 'selected' : ''}>学习</option>
+              <option value="review" ${task?.type === 'review' ? 'selected' : ''}>复习</option>
+              <option value="homework" ${task?.type === 'homework' ? 'selected' : ''}>作业</option>
+              <option value="exercise" ${task?.type === 'exercise' ? 'selected' : ''}>运动</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary modal-close-btn">取消</button>
+            <button type="submit" class="btn btn-primary">${isEdit ? '保存' : '添加'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Add active class to show the modal
+  setTimeout(() => modal.classList.add('active'), 10);
+
+  // 设置选中的科目
+  if (task) {
+    document.getElementById('taskSubject').value = task.subject;
+  }
+
+  // 关闭模态框
+  const closeModal = () => {
+    document.body.removeChild(modal);
+  };
+
+  modal.querySelectorAll('.modal-close, .modal-close-btn').forEach(btn => {
+    btn.addEventListener('click', closeModal);
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // 科目输入框获得焦点时，全选文本方便查看下拉列表
+  const subjectInput = document.getElementById('taskSubject');
+  subjectInput.addEventListener('focus', function() {
+    this.select();
+  });
+
+  // 表单提交
+  document.getElementById('taskForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 获取选中的日期
+    const selectedDays = Array.from(document.querySelectorAll('input[name="taskDays"]:checked'))
+      .map(cb => parseInt(cb.value));
+
+    if (selectedDays.length === 0) {
+      showToast('请至少选择一天', 'error');
+      return;
+    }
+
+    // 获取本周的日期范围
+    const weekStart = AppState.getWeekStart();
+    const weekDates = DateUtils.getWeekDates(weekStart);
+
+    // 获取科目并保存自定义科目
+    const subject = document.getElementById('taskSubject').value.trim();
+    if (!subject) {
+      showToast('请输入科目', 'error');
+      return;
+    }
+    saveCustomSubject(subject);
+
+    // 为每个选中的日期创建任务
+    const taskData = {
+      subject: subject,
+      title: document.getElementById('taskTitle').value,
+      type: document.getElementById('taskType').value
+    };
+
+    try {
+      if (isEdit) {
+        // 编辑模式：先删除原任务，再创建新任务
+        await TaskAPI.delete(task.id);
+        for (const dayIndex of selectedDays) {
+          await TaskAPI.create({
+            ...taskData,
+            date: weekDates[dayIndex]
+          });
+        }
+        showToast(`任务已更新到 ${selectedDays.length} 天`, 'success');
+      } else {
+        // 创建模式：为每个选中的日期创建任务
+        for (const dayIndex of selectedDays) {
+          await TaskAPI.create({
+            ...taskData,
+            date: weekDates[dayIndex]
+          });
+        }
+        showToast(`任务已添加到 ${selectedDays.length} 天`, 'success');
+      }
+      closeModal();
+      loadStudentData();
+    } catch (err) {
+      showToast(isEdit ? '更新失败' : '添加失败', 'error');
+    }
   });
 }
 

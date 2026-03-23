@@ -103,26 +103,28 @@ async function showSubjectDetail(subject) {
   modal.classList.add('active');
 
   try {
-    const detail = await StatsAPI.getSubject(subject, AppState.getWeekStart());
+    // URL encode the subject parameter for Chinese characters
+    const encodedSubject = encodeURIComponent(subject);
+    const detail = await StatsAPI.getSubject(encodedSubject, AppState.getWeekStart());
 
     body.innerHTML = `
       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
         <div style="flex: 1; background: #fffbeb; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 20px; font-weight: bold; color: #e67e00;">${detail.completed_count}/${detail.task_count}</div>
+          <div style="font-size: 20px; font-weight: bold; color: #e67e00;">${detail.completedCount}/${detail.taskCount}</div>
           <div style="font-size: 11px; color: #888;">任务完成</div>
         </div>
         <div style="flex: 1; background: #dbeafe; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 20px; font-weight: bold; color: #1a6fb5;">${detail.total_hours}h</div>
+          <div style="font-size: 20px; font-weight: bold; color: #1a6fb5;">${detail.totalHours}h</div>
           <div style="font-size: 11px; color: #888;">总用时</div>
         </div>
         <div style="flex: 1; background: #dcfce7; padding: 12px; border-radius: 6px; text-align: center;">
-          <div style="font-size: 20px; font-weight: bold; color: #1e8449;">${detail.completion_rate}%</div>
+          <div style="font-size: 20px; font-weight: bold; color: #1e8449;">${detail.completionRate}%</div>
           <div style="font-size: 11px; color: #888;">完成率</div>
         </div>
       </div>
 
       <h4 style="font-size: 14px; margin-bottom: 8px;">每日完成详情</h4>
-      ${detail.daily_details.map(day => `
+      ${detail.dailyDetails.map(day => `
         <div style="background: ${day.tasks.length > 0 ? 'white' : '#f9f9f9'}; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
           <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">${day.date}</div>
           ${day.tasks.map(task => `

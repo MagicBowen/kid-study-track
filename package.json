@@ -1,18 +1,39 @@
 {
-  "name": "study-tracker",
+  "name": "kid-study-track",
   "version": "1.0.0",
-  "description": "高中生课外任务进度跟踪打卡系统",
+  "description": "A task tracking and check-in system for high school students to manage extracurricular study tasks",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "init-db": "node src/database.js init",
-    "test": "echo \"Tests not yet implemented\""
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Tests not yet implemented\" && exit 0",
+    "db:reset": "rm -f data/tasks.db && npm start",
+    "db:backup": "mkdir -p data/backups && cp data/tasks.db data/backups/tasks-$(date +%Y%m%d-%H%M%S).db"
   },
+  "keywords": [
+    "study",
+    "tracker",
+    "education",
+    "task-management",
+    "student",
+    "parent"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "sqlite3": "^5.1.6",
     "puppeteer": "^21.0.0",
     "body-parser": "^1.20.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/kid-study-track.git"
+  }
 }

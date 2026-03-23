@@ -27,6 +27,35 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// POST /api/tasks - 创建新任务
+router.post('/', async (req, res, next) => {
+  try {
+    const { title, subject, date, type } = req.body;
+
+    if (!title || !subject || !date) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: '缺少必要参数 (title, subject, date)' }
+      });
+    }
+
+    const result = await database.run(
+      `INSERT INTO tasks (title, subject, date, type, is_completed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [title, subject, date, type || 'study']
+    );
+
+    const newTask = await database.get(
+      'SELECT id, title, subject, type, is_completed, date FROM tasks WHERE id = ?',
+      [result.id]
+    );
+
+    res.json({ success: true, data: newTask });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PUT /api/tasks/:id - 更新任务
 router.put('/:id', async (req, res, next) => {
   try {
@@ -63,6 +92,28 @@ router.put('/:id', async (req, res, next) => {
       success: true,
       data: { id: parseInt(id), is_completed, time_spent }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/tasks/:id - 删除任务
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Check if task exists
+    const task = await database.get('SELECT id FROM tasks WHERE id = ?', [id]);
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: '任务不存在' }
+      });
+    }
+
+    await database.run('DELETE FROM tasks WHERE id = ?', [id]);
+
+    res.json({ success: true, data: { id: parseInt(id) } });
   } catch (err) {
     next(err);
   }

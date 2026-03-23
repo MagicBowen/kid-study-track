@@ -1,112 +1,150 @@
-# 高中生课外任务进度跟踪打卡系统
+# kid-study-track
 
-一个简洁高效的学习任务管理系统，帮助高中生和家长协同管理课外学习计划。
+A task tracking and check-in system designed for high school students to manage their extracurricular study tasks.
 
-## 功能特点
+> **高中生课外任务进度跟踪打卡系统** - An online task tracking and check-in system for high school students to manage their extracurricular study tasks.
 
-- ✅ **双视图设计**: 学生视图专注任务打卡，家长视图监督学习进度
-- ✅ **灵活的计划管理**: 支持周内/周末计划模板，快速创建和复制计划
-- ✅ **PDF 导出**: 导出空白跟踪表，支持打印后手动填写
-- ✅ **数据持久化**: SQLite 本地存储，一键启动/停止
-- ✅ **时间追踪**: 自动计算学习用时，统计每日/每周数据
+## Features
 
-## 快速开始
+- 📅 **Daily/Weekly Task Planning** - Plan and track tasks by day or week
+- ✅ **Task Completion Tracking** - Mark tasks as complete with time tracking
+- 👁️ **Parent View** - Statistics and progress overview for parents
+- 📄 **PDF Export** - Generate printable weekly tracking sheets
+- ➕ **Custom Subjects** - Add custom subjects beyond the default ones
+- 📱 **Offline Capable** - Works offline with local SQLite database
+- 🖨️ **Print Support** - Print-friendly layouts for tracking sheets
 
-### 环境要求
+## Tech Stack
 
-- Node.js 14+
-- npm 或 yarn
+- **Backend**: Node.js + Express
+- **Frontend**: HTML + CSS + Vanilla JavaScript (no framework)
+- **Database**: SQLite (single-file database for easy setup)
+- **Package Manager**: npm
 
-### 安装
+## Quick Start
 
 ```bash
-# 克隆项目（如适用）
-cd kids
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/kid-study-track.git
+cd kid-study-track
 
-# 安装依赖
+# Install dependencies
 npm install
+
+# Start the server
+npm start
+
+# Or with development mode (auto-restart on changes)
+npm run dev
 ```
 
-### 启动
+The server runs on `http://localhost:3000` by default.
+
+## Usage
+
+### Student View
+
+1. **View Tasks** - See tasks for the selected day
+2. **Complete Tasks** - Check the checkbox when done, optionally add start/end times
+3. **Add Notes** - Record learning content, difficulties, etc.
+4. **Add Tasks** - Click "添加任务" to create new tasks
+5. **Edit/Delete** - Use ✏️ to edit or 🗑️ to delete tasks
+6. **Export PDF** - Click "导出PDF" to generate a printable tracking sheet
+
+### Parent View
+
+1. **View Statistics** - See weekly summary (total hours, completion rate)
+2. **Daily Trend** - Visual chart of daily study time
+3. **Subject Details** - Click on any subject to see detailed breakdown
+
+## Project Structure
+
+```
+kid-study-track/
+├── src/
+│   ├── server.js          # Express server entry point
+│   ├── routes/            # API routes
+│   │   ├── tasks.js       # Task CRUD operations
+│   │   ├── plans.js       # Plan management
+│   │   ├── stats.js       # Statistics endpoints
+│   │   └── export.js      # PDF export (print view)
+│   ├── models/            # Database models
+│   │   └── database.js    # SQLite database connection
+│   ├── public/            # Frontend files
+│   │   ├── index.html     # Main HTML
+│   │   ├── css/           # Stylesheets
+│   │   └── js/            # Frontend JavaScript
+│   └── utils/             # Helper functions
+├── data/                  # Database storage
+│   ├── tasks.db          # SQLite database (auto-created)
+│   └── backups/          # Database backups
+├── uploads/              # Uploaded photos
+├── package.json
+├── README.md
+└── LICENSE
+```
+
+## API Endpoints
+
+### Tasks
+- `GET /api/tasks?date=YYYY-MM-DD` - Get tasks for a specific date
+- `POST /api/tasks` - Create a new task
+- `PUT /api/tasks/:id` - Update a task
+- `DELETE /api/tasks/:id` - Delete a task
+- `POST /api/tasks/:id/complete` - Mark task as complete
+
+### Statistics
+- `GET /api/stats/week?weekStart=YYYY-MM-DD` - Get weekly statistics
+- `GET /api/stats/subject?subject=X&weekStart=YYYY-MM-DD` - Get subject details
+
+### Export
+- `GET /api/export/print?weekStart=YYYY-MM-DD` - Generate print-friendly HTML
+
+## Default Subjects
+
+- 数学 (Math) 📐
+- 物理 (Physics) ⚛️
+- 化学 (Chemistry) 🧪
+- 生物 (Biology) 🧬
+- 语文 (Chinese) 📖
+- 英语 (English) 📝
+- 运动 (Sports) 🏃
+
+Custom subjects can be added when creating tasks.
+
+## Development
 
 ```bash
-# 一键启动
-./start.sh
+# Run tests
+npm test
 
-# 或使用 npm
-npm start
+# Reset database (CAUTION: deletes all data)
+npm run db:reset
+
+# Backup database
+npm run db:backup
 ```
 
-访问 http://localhost:3000 开始使用。
+## Configuration
 
-## 使用指南
+The application uses the following default configuration:
 
-### 学生视图
+- **Port**: 3000
+- **Database**: `./data/tasks.db`
+- **Upload Path**: `./uploads`
 
-1. **选择日期**: 点击顶部日期选择当天
-2. **查看任务**: 查看当天所有待办任务
-3. **打卡**: 点击复选框标记任务完成
-4. **记录时间**: 输入开始和结束时间，自动计算用时
-5. **添加备注**: 在备注框记录学习内容、难点等
+## License
 
-### 家长视图
+MIT License - see [LICENSE](LICENSE) for details.
 
-1. **查看统计**: 顶部卡片显示本周总用时、完成率等
-2. **每日趋势**: 柱状图展示每天学习时间
-3. **科目详情**: 点击科目查看每日完成详情
+## Contributing
 
-### 计划管理
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-- **复制上周计划**: 点击底部"复制上周计划"按钮
-- **导出PDF**: 点击"导出PDF"下载可打印的空白跟踪表
+## Support
 
-## 技术栈
+For issues and questions, please open an issue on GitHub.
 
-- **后端**: Node.js + Express
-- **数据库**: SQLite3
-- **PDF生成**: Puppeteer
-- **前端**: HTML + CSS + Vanilla JavaScript
+---
 
-## 项目结构
-
-```
-kids/
-├── src/
-│   ├── server.js           # Express 服务器
-│   ├── database.js         # SQLite 数据库
-│   ├── routes/             # API 路由
-│   └── public/             # 前端文件
-├── data/                   # 数据库文件
-├── start.sh               # 启动脚本
-└── README.md              # 本文件
-```
-
-## 配置
-
-配置文件位于 `config.json`：
-
-```json
-{
-  "server": {
-    "port": 3000
-  },
-  "database": {
-    "path": "./data/tasks.db"
-  }
-}
-```
-
-## 常见问题
-
-**Q: 数据保存在哪里？**
-A: 所有数据保存在本地 `data/tasks.db` SQLite 数据库文件中。
-
-**Q: 可以修改端口吗？**
-A: 可以，编辑 `config.json` 中的 `server.port` 配置。
-
-**Q: 如何备份数据？**
-A: 系统会在每次启动时自动备份到 `data/backups/` 目录。
-
-## 许可证
-
-MIT
+Made with ❤️ for students and parents

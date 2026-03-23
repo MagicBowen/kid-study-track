@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>State Management Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .test-result {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .pass {
+      background: #d4edda;
+      color: #155724;
+    }
+    .fail {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .state-display {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 State Management Test Suite</h1>
+
+  <div class="test-section">
+    <h2>Test 1: Initial State</h2>
+    <div id="test1"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test 2: Date Selection</h2>
+    <button onclick="testDateSelection()">Test Date Selection</button>
+    <div id="test2"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test 3: View Switching</h2>
+    <button onclick="testViewSwitching()">Test View Switching</button>
+    <div id="test3"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Test 4: Event Listeners</h2>
+    <button onclick="testEventListeners()">Test Event Listeners</button>
+    <div id="test4"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Current State</h2>
+    <button onclick="displayState()">Refresh State</button>
+    <div id="stateDisplay" class="state-display"></div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/state.js"></script>
+  <script>
+    // Helper function to display test results
+    function showResult(testId, message, passed) {
+      const div = document.getElementById(testId);
+      div.innerHTML = `<div class="test-result ${passed ? 'pass' : 'fail'}">${message}</div>`;
+    }
+
+    // Test 1: Initial State
+    function testInitialState() {
+      const tests = [
+        { name: 'currentView is student', pass: AppState.currentView === 'student' },
+        { name: 'selectedDate is valid date format', pass: /^\d{4}-\d{2}-\d{2}$/.test(AppState.selectedDate) },
+        { name: 'currentWeek has tasks object', pass: typeof AppState.currentWeek.tasks === 'object' },
+        { name: 'statsCache initialized', pass: AppState.statsCache !== null },
+        { name: 'loading is false', pass: AppState.loading === false },
+        { name: 'listeners is array', pass: Array.isArray(AppState.listeners) }
+      ];
+
+      const allPassed = tests.every(t => t.pass);
+      const message = tests.map(t => `${t.pass ? '✓' : '✗'} ${t.name}`).join('\n');
+      showResult('test1', message, allPassed);
+    }
+
+    // Test 2: Date Selection
+    function testDateSelection() {
+      const newDate = '2024-03-20';
+      let eventFired = false;
+
+      AppState.on('date-changed', () => {
+        eventFired = true;
+      });
+
+      AppState.setSelectedDate(newDate);
+
+      const tests = [
+        { name: 'selectedDate updated', pass: AppState.selectedDate === newDate },
+        { name: 'date-changed event fired', pass: eventFired }
+      ];
+
+      const allPassed = tests.every(t => t.pass);
+      const message = tests.map(t => `${t.pass ? '✓' : '✗'} ${t.name}`).join('\n');
+      showResult('test2', message, allPassed);
+    }
+
+    // Test 3: View Switching
+    function testViewSwitching() {
+      let eventFired = false;
+
+      AppState.on('view-changed', () => {
+        eventFired = true;
+      });
+
+      AppState.switchView('parent');
+
+      const tests = [
+        { name: 'currentView changed to parent', pass: AppState.currentView === 'parent' },
+        { name: 'view-changed event fired', pass: eventFired }
+      ];
+
+      const allPassed = tests.every(t => t.pass);
+      const message = tests.map(t => `${t.pass ? '✓' : '✗'} ${t.name}`).join('\n');
+      showResult('test3', message, allPassed);
+
+      // Switch back to student view
+      AppState.switchView('student');
+    }
+
+    // Test 4: Event Listeners
+    function testEventListeners() {
+      let callCount = 0;
+
+      const callback1 = () => { callCount++; };
+      const callback2 = () => { callCount++; };
+
+      AppState.on('test-event', callback1);
+      AppState.on('test-event', callback2);
+
+      AppState.notifyListeners('test-event');
+
+      const tests = [
+        { name: 'Both listeners called', pass: callCount === 2 },
+        { name: 'Listeners stored in array', pass: AppState.listeners.length >= 2 }
+      ];
+
+      const allPassed = tests.every(t => t.pass);
+      const message = tests.map(t => `${t.pass ? '✓' : '✗'} ${t.name}`).join('\n');
+      showResult('test4', message, allPassed);
+    }
+
+    // Display current state
+    function displayState() {
+      const state = {
+        currentView: AppState.currentView,
+        selectedDate: AppState.selectedDate,
+        weekStart: AppState.getWeekStart(),
+        loading: AppState.loading,
+        listenersCount: AppState.listeners.length
+      };
+      document.getElementById('stateDisplay').textContent = JSON.stringify(state, null, 2);
+    }
+
+    // Run initial test on load
+    window.onload = () => {
+      testInitialState();
+      displayState();
+    };
+  </script>
+</body>
+</html>

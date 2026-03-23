@@ -173,6 +173,31 @@ body {
   font-size: 12px;
 }
 
+/* Task action buttons */
+.task-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.btn-action:hover {
+  opacity: 1;
+}
+
+.btn-delete:hover {
+  color: #e74c3c;
+}
+
 /* 按钮样式 */
 .action-bar {
   display: flex;
@@ -289,6 +314,9 @@ body {
   max-width: 600px;
   max-height: 80vh;
   overflow: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -308,6 +336,116 @@ body {
 
 .modal-body {
   padding: 16px;
+}
+
+/* Modal form styles */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+  font-size: 13px;
+  color: #555;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px;
+  border-top: 1px solid #ddd;
+}
+
+.modal-actions .btn {
+  flex: none;
+  min-width: 80px;
+}
+
+/* Day checkboxes */
+.day-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.day-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.day-checkbox-item:hover {
+  background: #e8e8e8;
+}
+
+.day-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.day-checkbox-item span {
+  font-size: 13px;
+  color: #555;
+}
+
+.day-checkbox-item input:checked + span {
+  font-weight: bold;
+  color: #667eea;
+}
+
+/* Datalist styling for subject dropdown */
+input[list] {
+  cursor: text;
+}
+
+datalist {
+  z-index: 10000;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: #f5f5f5;
 }
 
 /* Loading */
