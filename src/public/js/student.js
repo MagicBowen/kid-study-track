@@ -81,6 +81,11 @@ function setupEventListeners() {
   document.getElementById('addTaskBtn')?.addEventListener('click', () => {
     showTaskModal();
   });
+
+  // OCR拍照录入
+  document.getElementById('ocrUploadBtn')?.addEventListener('click', () => {
+    OCRUpload.triggerCamera();
+  });
 }
 
 async function loadStudentData() {
