@@ -97,7 +97,20 @@ class Database {
       `CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,
         applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`
+      )`,
+
+      // ocr_uploads 表
+      `CREATE TABLE IF NOT EXISTS ocr_uploads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  upload_id TEXT UNIQUE NOT NULL,
+  week_start TEXT NOT NULL,
+  photo_path TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  ocr_result TEXT,
+  confirmed_result TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  confirmed_at TEXT
+)`
     ];
 
     for (const sql of tables) {
