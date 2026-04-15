@@ -26,8 +26,7 @@ const MIN_CELL_SIZE = 10;
  * @returns {Promise<{binarized: Buffer, color: Buffer, metadata: Object}>}
  */
 async function preprocessImage(filePath) {
-  const pipeline = sharp(filePath);
-  const metadata = await pipeline.metadata();
+  const metadata = await sharp(filePath).metadata();
 
   // Create binarized version (for checkbox/text OCR)
   const binarized = await sharp(filePath)
@@ -60,7 +59,7 @@ async function detectTableBounds(filePath) {
   const threshold = 128;
 
   // Scan from top
-  let top = 0;
+  let top = -1;
   outerTop:
   for (let y = 0; y < height * 0.3; y++) {
     for (let x = 0; x < width; x++) {
@@ -70,9 +69,10 @@ async function detectTableBounds(filePath) {
       }
     }
   }
+  if (top === -1) return null;
 
   // Scan from bottom
-  let bottom = height - 1;
+  let bottom = -1;
   outerBottom:
   for (let y = height - 1; y > height * 0.7; y--) {
     for (let x = 0; x < width; x++) {
@@ -82,9 +82,10 @@ async function detectTableBounds(filePath) {
       }
     }
   }
+  if (bottom === -1) return null;
 
   // Scan from left
-  let left = 0;
+  let left = -1;
   outerLeft:
   for (let x = 0; x < width * 0.3; x++) {
     for (let y = top; y <= bottom; y++) {
@@ -94,9 +95,10 @@ async function detectTableBounds(filePath) {
       }
     }
   }
+  if (left === -1) return null;
 
   // Scan from right
-  let right = width - 1;
+  let right = -1;
   outerRight:
   for (let x = width - 1; x > width * 0.7; x--) {
     for (let y = top; y <= bottom; y++) {
@@ -106,6 +108,7 @@ async function detectTableBounds(filePath) {
       }
     }
   }
+  if (right === -1) return null;
 
   const tableWidth = right - left;
   const tableHeight = bottom - top;
@@ -129,6 +132,7 @@ async function detectTableBounds(filePath) {
  */
 async function detectRowCount(binarizedBuffer, bounds) {
   const { data, info } = await sharp(binarizedBuffer)
+    .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
@@ -237,21 +241,31 @@ function getRowCellRegions(bounds, rowIndex, totalRows, headerHeight) {
 }
 
 /**
+ * Extract a region from an image buffer, clamped to image boundaries.
+ * @param {Buffer} buffer - Image buffer (PNG)
+ * @param {object} region - { x, y, w, h }
+ * @returns {Promise<Buffer>}
+ */
+async function extractRegion(buffer, region) {
+  const meta = await sharp(buffer).metadata();
+  const left = Math.max(0, Math.min(region.x, meta.width - 1));
+  const top = Math.max(0, Math.min(region.y, meta.height - 1));
+  const width = Math.max(1, Math.min(region.w, meta.width - left));
+  const height = Math.max(1, Math.min(region.h, meta.height - top));
+  return sharp(buffer)
+    .extract({ left, top, width, height })
+    .png()
+    .toBuffer();
+}
+
+/**
  * Crop a cell region from the preprocessed binarized image buffer.
  * @param {Buffer} binarizedBuffer - Preprocessed binarized image buffer
  * @param {object} region - { x, y, w, h }
  * @returns {Promise<Buffer>}
  */
 async function cropCell(binarizedBuffer, region) {
-  return sharp(binarizedBuffer)
-    .extract({
-      left: Math.max(0, region.x),
-      top: Math.max(0, region.y),
-      width: Math.max(1, region.w),
-      height: Math.max(1, region.h)
-    })
-    .png()
-    .toBuffer();
+  return extractRegion(binarizedBuffer, region);
 }
 
 /**
@@ -261,15 +275,7 @@ async function cropCell(binarizedBuffer, region) {
  * @returns {Promise<Buffer>}
  */
 async function cropCellColor(colorBuffer, region) {
-  return sharp(colorBuffer)
-    .extract({
-      left: Math.max(0, region.x),
-      top: Math.max(0, region.y),
-      width: Math.max(1, region.w),
-      height: Math.max(1, region.h)
-    })
-    .png()
-    .toBuffer();
+  return extractRegion(colorBuffer, region);
 }
 
 module.exports = {
