@@ -26,16 +26,19 @@ async function initWorker() {
   if (workerInitializing) return workerInitializing;
 
   workerInitializing = (async () => {
-    console.log('Initializing OCR worker (downloading language data on first run)...');
-    worker = await Tesseract.createWorker('chi_sim+eng', Tesseract.OEM.LSTM_ONLY, {
-      logger: m => {
-        if (m.status === 'loading language traineddata') {
-          console.log(`  OCR: ${m.status} ${Math.round((m.progress || 0) * 100)}%`);
+    try {
+      console.log('Initializing OCR worker (downloading language data on first run)...');
+      worker = await Tesseract.createWorker('chi_sim+eng', Tesseract.OEM.LSTM_ONLY, {
+        logger: m => {
+          if (m.status === 'loading language traineddata') {
+            console.log(`  OCR: ${m.status} ${Math.round((m.progress || 0) * 100)}%`);
+          }
         }
-      }
-    });
-    console.log('OCR worker ready');
-    workerInitializing = null;
+      });
+      console.log('OCR worker ready');
+    } finally {
+      workerInitializing = null;
+    }
   })();
 
   return workerInitializing;
@@ -64,8 +67,9 @@ async function recognizeCheckbox(cellImage) {
   const totalPixels = info.width * info.height;
   if (totalPixels === 0) return { checked: false, confidence: 0 };
 
+  // Sample only the first channel to avoid 3x inflation from RGB
   let blackPixels = 0;
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 0; i < data.length; i += info.channels) {
     if (data[i] < 128) blackPixels++;
   }
 
@@ -178,14 +182,10 @@ async function matchTitle(ocrText, subject, weekStart) {
 
   // Get all tasks for this subject in this week
   const weekDates = [];
-  const startDate = new Date(weekStart);
+  const [sy, sm, sd] = weekStart.split('-').map(Number);
   for (let i = 0; i < 7; i++) {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    weekDates.push(`${y}-${m}-${day}`);
+    const d = new Date(sy, sm - 1, sd + i);
+    weekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
 
   const placeholders = weekDates.map(() => '?').join(',');
@@ -263,14 +263,10 @@ async function processSheet(imagePath, weekStart) {
   // 5. Process each row
   const results = [];
   const weekDates = [];
-  const startDate = new Date(weekStart);
+  const [sy, sm, sd] = weekStart.split('-').map(Number);
   for (let i = 0; i < 7; i++) {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + i);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    weekDates.push(`${y}-${m}-${day}`);
+    const d = new Date(sy, sm - 1, sd + i);
+    weekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
 
   for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
