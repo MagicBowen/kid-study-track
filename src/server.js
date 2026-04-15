@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const config = require('../config.json');
 const database = require('./database');
+const ocrEngine = require('./utils/ocr-engine');
 
 const app = express();
 const PORT = config.server.port;
@@ -20,6 +21,7 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/export', require('./routes/export'));
+app.use('/api/upload', require('./routes/upload'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -70,6 +72,10 @@ async function start() {
     console.log('🌱 Seeding default data...');
     await database.seedDefaultData();
 
+    // Initialize OCR worker
+    console.log('Initializing OCR worker...');
+    await ocrEngine.initWorker();
+
     // Start server
     const server = app.listen(PORT, HOST, () => {
       console.log('');
@@ -89,6 +95,10 @@ async function start() {
       // Close server
       server.close(async () => {
         try {
+          // Terminate OCR worker
+          await ocrEngine.terminateWorker();
+          console.log('OCR worker terminated');
+
           // Close database
           await database.close();
           console.log('✅ Database closed');
