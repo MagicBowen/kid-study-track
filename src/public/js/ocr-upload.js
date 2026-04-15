@@ -238,7 +238,6 @@ const OCRUpload = {
    */
   async confirmResults(overlay, originalResult) {
     const results = [];
-    const weekDates = DateUtils.getWeekDates(originalResult.weekStart);
 
     for (const r of originalResult.results) {
       const key = `${r.subject}|${r.title}|${r.taskId || 'new'}`;
