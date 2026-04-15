@@ -9,6 +9,15 @@ const OCRUpload = {
   currentWeekStart: null,
 
   /**
+   * Escape HTML special characters to prevent XSS
+   */
+  _esc(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str || '');
+    return div.innerHTML;
+  },
+
+  /**
    * Open the camera/file picker
    */
   triggerCamera() {
@@ -43,7 +52,13 @@ const OCRUpload = {
 
     // Compress image
     showToast('正在压缩图片...', 'info');
-    const compressed = await this.compressImage(file);
+    let compressed;
+    try {
+      compressed = await this.compressImage(file);
+    } catch (err) {
+      showToast('图片处理失败: ' + err.message, 'error');
+      return;
+    }
 
     // Show upload progress
     this.showUploadProgress();
@@ -76,10 +91,12 @@ const OCRUpload = {
    * Compress image using Canvas API
    */
   compressImage(file) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onerror = () => reject(new Error('文件读取失败'));
       reader.onload = (e) => {
         const img = new Image();
+        img.onerror = () => reject(new Error('图片解码失败'));
         img.onload = () => {
           const MAX_WIDTH = 1200;
           let width = img.width;
@@ -110,12 +127,13 @@ const OCRUpload = {
    * Show upload progress overlay
    */
   showUploadProgress() {
+    this.hideUploadProgress();
     const overlay = document.createElement('div');
     overlay.className = 'ocr-overlay';
     overlay.id = 'ocrUploadOverlay';
     overlay.innerHTML = `
       <div class="ocr-progress-dialog">
-        <h3>正在识别中...</h3>
+        <h3>正在处理...</h3>
         <div class="ocr-progress-bar">
           <div class="ocr-progress-fill" id="ocrProgressFill" style="width: 0%"></div>
         </div>
@@ -138,9 +156,21 @@ const OCRUpload = {
   },
 
   /**
+   * Dismiss any open OCR overlay
+   */
+  _dismissOverlays() {
+    this.hideUploadProgress();
+    const results = document.getElementById('ocrResultsOverlay');
+    if (results) results.remove();
+  },
+
+  /**
    * Show editable results table
    */
   showResultsTable(result) {
+    this._dismissOverlays();
+    const esc = this._esc.bind(this);
+
     const overlay = document.createElement('div');
     overlay.className = 'ocr-overlay';
     overlay.id = 'ocrResultsOverlay';
@@ -162,8 +192,8 @@ const OCRUpload = {
       const color = SubjectConfig.getColor(group.subject);
       rows += `
         <tr>
-          <td class="ocr-subject" style="background:${color};color:white">${group.subject}</td>
-          <td class="ocr-title">${group.title}${!group.taskId ? ' <small class="ocr-new">新任务</small>' : ''}</td>
+          <td class="ocr-subject" style="background:${color};color:white">${esc(group.subject)}</td>
+          <td class="ocr-title">${esc(group.title)}${!group.taskId ? ' <small class="ocr-new">新任务</small>' : ''}</td>
           ${weekDates.map(date => {
             const dayData = group.days[date];
             if (!dayData) return '<td class="ocr-cell ocr-empty">—</td>';
@@ -174,19 +204,19 @@ const OCRUpload = {
               <td class="ocr-cell">
                 <input type="checkbox" class="ocr-checkbox"
                   ${dayData.checked ? 'checked' : ''}
-                  data-upload-id="${result.uploadId}" data-day="${date}" data-key="${key}">
+                  data-day="${esc(date)}" data-key="${esc(key)}">
                 <div class="${confClass(checkedConf)}"></div>
                 <input type="number" class="ocr-time" min="0" placeholder="分"
-                  value="${dayData.timeSpent || ''}"
-                  data-upload-id="${result.uploadId}" data-day="${date}" data-key="${key}">
+                  value="${esc(dayData.timeSpent || '')}"
+                  data-day="${esc(date)}" data-key="${esc(key)}">
                 <div class="${confClass(timeConf)}"></div>
               </td>
             `;
           }).join('')}
           <td class="ocr-cell">
             <input type="text" class="ocr-notes" placeholder="备注"
-              value="${group.notes || ''}"
-              data-upload-id="${result.uploadId}" data-key="${key}">
+              value="${esc(group.notes || '')}"
+              data-key="${esc(key)}">
           </td>
         </tr>
       `;
@@ -226,11 +256,26 @@ const OCRUpload = {
     document.body.appendChild(overlay);
 
     // Bind events
-    document.getElementById('ocrCloseBtn').addEventListener('click', () => overlay.remove());
-    document.getElementById('ocrCancelBtn').addEventListener('click', () => overlay.remove());
+    const dismiss = () => overlay.remove();
+    document.getElementById('ocrCloseBtn').addEventListener('click', dismiss);
+    document.getElementById('ocrCancelBtn').addEventListener('click', dismiss);
     document.getElementById('ocrConfirmBtn').addEventListener('click', () => {
       this.confirmResults(overlay, result);
     });
+
+    // Backdrop click to dismiss
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) dismiss();
+    });
+
+    // Escape key to dismiss
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        dismiss();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
   },
 
   /**
