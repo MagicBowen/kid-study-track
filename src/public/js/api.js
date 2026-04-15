@@ -110,3 +110,53 @@ const ExportAPI = {
     window.open(url, '_blank');
   }
 };
+
+// OCR Upload API
+const UploadAPI = {
+  // Upload photo for OCR
+  async uploadPhoto(file, weekStart, onProgress) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('photo', file);
+      formData.append('weekStart', weekStart);
+
+      const xhr = new XMLHttpRequest();
+
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
+      }
+
+      xhr.addEventListener('load', () => {
+        try {
+          const result = JSON.parse(xhr.responseText);
+          if (result.success) {
+            resolve(result.data);
+          } else {
+            reject(new Error(result.error?.message || 'OCR 处理失败'));
+          }
+        } catch (err) {
+          reject(new Error('响应解析失败'));
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('网络错误')));
+      xhr.addEventListener('timeout', () => reject(new Error('请求超时')));
+
+      xhr.open('POST', '/api/upload/photo');
+      xhr.timeout = 60000; // 60s for upload + OCR
+      xhr.send(formData);
+    });
+  },
+
+  // Confirm OCR results
+  async confirmResults(uploadId, weekStart, results) {
+    return apiRequest('/upload/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ uploadId, weekStart, results })
+    });
+  }
+};
