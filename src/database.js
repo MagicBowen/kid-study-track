@@ -101,16 +101,16 @@ class Database {
 
       // ocr_uploads 表
       `CREATE TABLE IF NOT EXISTS ocr_uploads (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  upload_id TEXT UNIQUE NOT NULL,
-  week_start TEXT NOT NULL,
-  photo_path TEXT NOT NULL,
-  status TEXT DEFAULT 'pending',
-  ocr_result TEXT,
-  confirmed_result TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  confirmed_at TEXT
-)`
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        upload_id TEXT UNIQUE NOT NULL,
+        week_start TEXT NOT NULL,
+        photo_path TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'rejected')),
+        ocr_result TEXT,
+        confirmed_result TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at DATETIME
+      )`
     ];
 
     for (const sql of tables) {
