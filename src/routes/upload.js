@@ -26,7 +26,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (/jpeg|jpg|png/.test(file.mimetype)) {
+    if (/^image\/(jpeg|jpg|png)$/.test(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('仅支持 JPEG/PNG 图片'));
@@ -138,6 +138,30 @@ router.post('/confirm', async (req, res, next) => {
       });
     }
 
+    // Validate weekStart format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'weekStart 格式无效' }
+      });
+    }
+
+    // Validate result items
+    for (const item of results) {
+      if (item.taskId && (!Number.isInteger(item.taskId) || item.taskId <= 0)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: '无效的 taskId' }
+        });
+      }
+      if (item.timeSpent != null && (typeof item.timeSpent !== 'number' || item.timeSpent < 0)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: '无效的 timeSpent 值' }
+        });
+      }
+    }
+
     // Check upload exists and is pending
     const uploadRecord = await database.get(
       'SELECT * FROM ocr_uploads WHERE upload_id = ?',
@@ -158,35 +182,43 @@ router.post('/confirm', async (req, res, next) => {
       });
     }
 
-    // Process results
+    // Process results in a transaction
     let updated = 0;
     const total = results.length;
 
-    for (const item of results) {
-      if (item.taskId) {
-        await database.run(
-          `UPDATE tasks SET is_completed = ?, time_spent = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
-          [item.checked ? 1 : 0, item.timeSpent || 0, item.notes || '', item.taskId]
-        );
-        updated++;
-      } else {
-        await database.run(
-          `INSERT INTO tasks (title, subject, date, is_completed, time_spent, notes, type, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'study', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [item.title || '未知任务', item.subject || '未知', item.day || weekStart,
-           item.checked ? 1 : 0, item.timeSpent || 0, item.notes || '']
-        );
-        updated++;
+    await database.run('BEGIN TRANSACTION');
+    try {
+      for (const item of results) {
+        if (item.taskId) {
+          const result = await database.run(
+            `UPDATE tasks SET is_completed = ?, time_spent = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [item.checked ? 1 : 0, item.timeSpent || 0, item.notes || '', item.taskId]
+          );
+          if (result.changes > 0) updated++;
+        } else {
+          await database.run(
+            `INSERT INTO tasks (title, subject, date, is_completed, time_spent, notes, type, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'study', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [item.title || '未知任务', item.subject || '未知', item.day || weekStart,
+             item.checked ? 1 : 0, item.timeSpent || 0, item.notes || '']
+          );
+          updated++;
+        }
       }
-    }
 
-    // Mark upload as confirmed
-    await database.run(
-      `UPDATE ocr_uploads SET status = 'confirmed', confirmed_result = ?, confirmed_at = datetime('now')
-       WHERE upload_id = ?`,
-      [JSON.stringify(results), uploadId]
-    );
+      // Mark upload as confirmed
+      await database.run(
+        `UPDATE ocr_uploads SET status = 'confirmed', confirmed_result = ?, confirmed_at = datetime('now')
+         WHERE upload_id = ?`,
+        [JSON.stringify(results), uploadId]
+      );
+
+      await database.run('COMMIT');
+    } catch (err) {
+      await database.run('ROLLBACK');
+      throw err;
+    }
 
     res.json({
       success: true,
