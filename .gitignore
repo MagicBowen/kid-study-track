@@ -47,3 +47,6 @@ temp/
 # Environment files
 .env
 .env.local
+
+# Tesseract language data (auto-downloaded)
+*.traineddata
